@@ -14,7 +14,7 @@ enum AppScreen: Hashable {
 }
 
 struct AppNavigator: View {
-    @StateObject private var authManager = AuthenticationManager.shared
+    @EnvironmentObject var authManager: AuthenticationManager
     @State private var path: [AppScreen] = []
     @State private var currentScreen: AppScreen = .welcome
     @State private var needsOnboarding: Bool = false

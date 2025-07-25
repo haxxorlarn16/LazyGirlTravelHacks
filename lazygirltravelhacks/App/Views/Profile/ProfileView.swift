@@ -1,8 +1,8 @@
 import SwiftUI
 
 struct ProfileView: View {
-    @StateObject private var authManager = AuthenticationManager.shared
-    @StateObject private var subscriptionManager = SubscriptionManager.shared
+    @EnvironmentObject var authManager: AuthenticationManager
+    @EnvironmentObject var subscriptionManager: SubscriptionManager
     @State private var showingPaywall = false
     
     var body: some View {

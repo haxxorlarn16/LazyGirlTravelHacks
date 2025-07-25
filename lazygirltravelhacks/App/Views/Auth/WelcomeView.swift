@@ -50,7 +50,7 @@ class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAut
 
 
 struct WelcomeView: View {
-    @StateObject private var authManager = AuthenticationManager.shared
+    @EnvironmentObject var authManager: AuthenticationManager
     @State private var showEmailAuth = false
     @State private var appleSignInCoordinator: AppleSignInCoordinator?
     

@@ -5,6 +5,7 @@ struct lazygirltravelhacksApp: App {
 
     // This creates one instance of your manager for the entire app.
     @StateObject var authManager = AuthenticationManager()
+    @StateObject var subscriptionManager = SubscriptionManager()
 
     var body: some Scene {
         WindowGroup {
@@ -13,6 +14,7 @@ struct lazygirltravelhacksApp: App {
                 // This makes the authManager available to ContentView
                 // and any other views that need it.
                 .environmentObject(authManager)
+                .environmentObject(subscriptionManager)
         }
     }
 }

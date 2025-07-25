@@ -1,11 +1,8 @@
 import Foundation
 import AuthenticationServices
 import Combine
-// import FirebaseAuth
-// import FirebaseCore
 
 class AuthenticationManager: NSObject, ObservableObject {
-    static let shared = AuthenticationManager()
     
     @Published var isSignedIn: Bool = false
     @Published var currentUser: User?
@@ -19,7 +16,21 @@ class AuthenticationManager: NSObject, ObservableObject {
         checkSignInStatus()
     }
     
+    // MARK: - User Data Management
+    
+    /// Updates the current user's home airport and saves the change.
+    func updateHomeAirport(to airportCode: String) {
+        guard var updatedUser = self.currentUser else { return }
+        
+        updatedUser.homeAirport = airportCode
+        self.currentUser = updatedUser
+        saveUser(updatedUser)
+        
+        print("✅ Home airport updated to \(airportCode)")
+    }
+
     // MARK: - Apple Sign-In
+    
     func signInWithApple() {
         isLoading = true
         authError = nil
@@ -33,6 +44,8 @@ class AuthenticationManager: NSObject, ObservableObject {
         authorizationController.performRequests()
     }
     
+    // MARK: - Email Sign-In / Sign-Up
+    
     func signUpWithEmail(email: String, password: String, firstName: String, lastName: String) {
         isLoading = true
         authError = nil
@@ -41,7 +54,6 @@ class AuthenticationManager: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.isLoading = false
             
-            // Create a simple user object
             let user = User(
                 id: UUID().uuidString,
                 email: email,
@@ -65,7 +77,6 @@ class AuthenticationManager: NSObject, ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.isLoading = false
             
-            // Create a simple user object
             let user = User(
                 id: UUID().uuidString,
                 email: email,
@@ -85,10 +96,11 @@ class AuthenticationManager: NSObject, ObservableObject {
         isSignedIn = false
         currentUser = nil
         authError = nil
-        // Clear any stored user data
         UserDefaults.standard.removeObject(forKey: "currentUser")
         print("✅ User signed out")
     }
+    
+    // MARK: - Persistence
     
     func saveUser(_ user: User) {
         if let userData = try? JSONEncoder().encode(user) {
@@ -97,7 +109,6 @@ class AuthenticationManager: NSObject, ObservableObject {
     }
     
     private func checkSignInStatus() {
-        // Check if user is already signed in via UserDefaults
         if let userData = UserDefaults.standard.data(forKey: "currentUser"),
            let user = try? JSONDecoder().decode(User.self, from: userData) {
             currentUser = user
@@ -106,6 +117,7 @@ class AuthenticationManager: NSObject, ObservableObject {
     }
     
     // MARK: - Apple Sign-In Handler
+    
     func handleAppleSignIn(_ result: Result<ASAuthorization, Error>) async {
         await MainActor.run {
             isLoading = false
@@ -118,7 +130,6 @@ class AuthenticationManager: NSObject, ObservableObject {
                 let email = appleIDCredential.email
                 let fullName = appleIDCredential.fullName
                 
-                // Create user object
                 let displayName = fullName != nil ? "\(fullName!.givenName ?? "") \(fullName!.familyName ?? "")" : "Apple User"
                 let user = User(
                     id: userID,
@@ -144,8 +155,8 @@ class AuthenticationManager: NSObject, ObservableObject {
     }
 }
 
-// MARK: - ASAuthorizationControllerDelegate
-extension AuthenticationManager: ASAuthorizationControllerDelegate {
+// MARK: - ASAuthorizationControllerDelegate & ContextProviding
+extension AuthenticationManager: ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
     func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
         Task {
             await handleAppleSignIn(.success(authorization))
@@ -157,10 +168,7 @@ extension AuthenticationManager: ASAuthorizationControllerDelegate {
             await handleAppleSignIn(.failure(error))
         }
     }
-}
-
-// MARK: - ASAuthorizationControllerPresentationContextProviding
-extension AuthenticationManager: ASAuthorizationControllerPresentationContextProviding {
+    
     func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
               let window = windowScene.windows.first else {
@@ -168,4 +176,4 @@ extension AuthenticationManager: ASAuthorizationControllerPresentationContextPro
         }
         return window
     }
-} 
+}

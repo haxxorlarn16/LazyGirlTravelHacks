@@ -10,7 +10,7 @@ struct SuggestedWeekend: Identifiable, Hashable {
 
 struct QuickGetawaysView: View {
     @StateObject private var flightService = FlightService.shared
-    @StateObject private var authManager = AuthenticationManager.shared
+    @EnvironmentObject var authManager: AuthenticationManager
     @State private var showingSearchProgress = false
     @State private var selectedDestination = ""
     @State private var weekends: [SuggestedWeekend] = []
