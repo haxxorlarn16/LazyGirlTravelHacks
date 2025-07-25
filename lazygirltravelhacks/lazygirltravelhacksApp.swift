@@ -1,32 +1,18 @@
-//
-//  lazygirltravelhacksApp.swift
-//  lazygirltravelhacks
-//
-//  Created by Lauren Jones on 7/17/25.
-//
-
 import SwiftUI
-import SwiftData
 
 @main
 struct lazygirltravelhacksApp: App {
-    var sharedModelContainer: ModelContainer = {
-        let schema = Schema([
-            Item.self,
-        ])
-        let modelConfiguration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: false)
 
-        do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
-        } catch {
-            fatalError("Could not create ModelContainer: \(error)")
-        }
-    }()
+    // This creates one instance of your manager for the entire app.
+    @StateObject var authManager = AuthenticationManager()
 
     var body: some Scene {
         WindowGroup {
+            // ContentView is now the root view.
             ContentView()
+                // This makes the authManager available to ContentView
+                // and any other views that need it.
+                .environmentObject(authManager)
         }
-        .modelContainer(sharedModelContainer)
     }
 }
