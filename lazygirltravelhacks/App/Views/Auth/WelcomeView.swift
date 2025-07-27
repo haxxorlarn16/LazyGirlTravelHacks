@@ -1,160 +1,132 @@
 import SwiftUI
-import AuthenticationServices
-
-// A helper class to manage the Apple Sign-In flow.
-// This allows us to use a custom button while still using the official Apple Sign-In process.
-class AppleSignInCoordinator: NSObject, ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
-    private var authManager: AuthenticationManager
-    private var currentNonce: String?
-
-    init(authManager: AuthenticationManager) {
-        self.authManager = authManager
-    }
-    
-    // Provides the window to present the Apple Sign-In sheet.
-    func presentationAnchor(for controller: ASAuthorizationController) -> ASPresentationAnchor {
-        // This is the modern way to get the main window, resolving the deprecation warning.
-        guard let window = (UIApplication.shared.connectedScenes.first as? UIWindowScene)?.windows.first else {
-            fatalError("No window was found to present the Apple Sign In sheet.")
-        }
-        return window
-    }
-
-    // Starts the Apple Sign-In process.
-    func signIn() {
-        let request = ASAuthorizationAppleIDProvider().createRequest()
-        request.requestedScopes = [.fullName, .email]
-        
-        let controller = ASAuthorizationController(authorizationRequests: [request])
-        controller.delegate = self
-        controller.presentationContextProvider = self
-        controller.performRequests()
-    }
-
-    // Handles the successful sign-in.
-    func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
-        Task {
-            // The handleAppleSignIn function from your authManager is called here.
-            await authManager.handleAppleSignIn(.success(authorization))
-        }
-    }
-
-    // Handles any errors during sign-in.
-    func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
-        Task {
-            // The handleAppleSignIn function is also called on failure.
-            await authManager.handleAppleSignIn(.failure(error))
-        }
-    }
-}
-
 
 struct WelcomeView: View {
     @EnvironmentObject var authManager: AuthenticationManager
-    @State private var showEmailAuth = false
-    @State private var appleSignInCoordinator: AppleSignInCoordinator?
     
-    // Custom colors from the image provided
-    let appleButtonColor = Color(red: 253/255, green: 191/255, blue: 171/255)
-    let emailButtonColor = Color(red: 254/255, green: 226/255, blue: 200/255)
-    let emailButtonStrokeColor = Color(red: 239/255, green: 123/255, blue: 123/255)
+    // State variables to manage the form, moved from EmailAuthView
+    @State private var email = ""
+    @State private var password = ""
+    @State private var firstName = ""
+    @State private var lastName = ""
+    @State private var isSignUp = true // Default to Sign Up on the welcome screen
+    
+    private let pixelFontName = "PressStart2P-Regular"
 
     var body: some View {
         ZStack {
-            // Use the actual welcome background image
+            // Use the welcome background image
             Image("welcome-background")
                 .resizable()
-                .aspectRatio(contentMode: .fill)
-                .clipped()
+                .scaledToFill()
                 .ignoresSafeArea()
-            
-            VStack(spacing: 32) {
-                Spacer()
-                
-                Spacer()
-                
-                // Sign-in buttons
+
+            ScrollView {
                 VStack(spacing: 16) {
-                    // Custom Apple Sign-In Button
+                    
+                    Text(isSignUp ? "Create Account" : "Welcome Back")
+                        .font(.custom(pixelFontName, size: 24))
+                        .foregroundColor(DashboardTheme.text)
+                        .padding(.bottom, 20)
+                    
+                    // --- Form Fields ---
+                    if isSignUp {
+                        PixelTextField(text: $firstName, placeholder: "First Name", icon: "person.fill")
+                        PixelTextField(text: $lastName, placeholder: "Last Name", icon: "person.fill")
+                    }
+                    PixelTextField(text: $email, placeholder: "Email", icon: "envelope.fill", keyboardType: .emailAddress)
+                    PixelTextField(text: $password, placeholder: "Password", icon: "lock.fill", isSecure: true)
+
+                    if let error = authManager.authError {
+                        Text(error)
+                            .font(.custom(pixelFontName, size: 10))
+                            .foregroundColor(.red)
+                            .multilineTextAlignment(.center)
+                            .padding(.top, 4)
+                    }
+                    
+                    // --- Main Action Button ---
                     Button(action: {
-                        // Initialize and start the sign-in process
-                        self.appleSignInCoordinator = AppleSignInCoordinator(authManager: authManager)
-                        appleSignInCoordinator?.signIn()
+                        if isSignUp {
+                            authManager.signUpWithEmail(email: email, password: password, firstName: firstName, lastName: lastName)
+                        } else {
+                            authManager.signInWithEmail(email: email, password: password)
+                        }
+                    }) {
+                        HStack {
+                            if authManager.isLoading {
+                                ProgressView()
+                            } else {
+                                Text(isSignUp ? "CREATE ACCOUNT" : "SIGN IN")
+                                    .font(.custom(pixelFontName, size: 12))
+                            }
+                        }
+                        .foregroundColor(DashboardTheme.text)
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .pixelImageBorderStyle(imageName: "pixel-box-orange")
+                    }
+                    .disabled(authManager.isLoading || !isValidForm)
+                    .opacity(isValidForm ? 1.0 : 0.6)
+                    .padding(.top)
+                    
+                    // --- Toggle Sign Up/Sign In ---
+                    Button(action: {
+                        isSignUp.toggle()
+                        authManager.authError = nil
+                    }) {
+                        Text(isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up")
+                            .font(.custom(pixelFontName, size: 10))
+                            .foregroundColor(DashboardTheme.text)
+                            .underline()
+                    }
+                    
+                    // --- Divider ---
+                    HStack {
+                        Rectangle().frame(height: 1).opacity(0.4)
+                        Text("or").font(.custom(pixelFontName, size: 10)).opacity(0.8)
+                        Rectangle().frame(height: 1).opacity(0.4)
+                    }
+                    .foregroundColor(DashboardTheme.MainBox.fill)
+                    .padding(.vertical)
+                    
+                    // --- Apple Sign-In Button ---
+                    Button(action: {
+                        // MODIFIED: Simplified to call the manager directly
+                        authManager.signInWithApple()
                     }) {
                         HStack {
                             Image(systemName: "applelogo")
-                            Text("Sign in with Apple")
-                                .fontWeight(.semibold)
+                            Text("Continue with Apple")
+                                .font(.custom(pixelFontName, size: 12))
                         }
-                        .foregroundColor(.black)
+                        .foregroundColor(DashboardTheme.MainBox.fill)
                         .frame(maxWidth: .infinity)
-                        .frame(height: 55)
-                        .background(appleButtonColor)
-                        .cornerRadius(27.5)
-                    }
-                    
-                    // Divider
-                    HStack {
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(.black.opacity(0.2))
-                        Text("or")
-                            .foregroundColor(.black.opacity(0.6))
-                            .font(.caption)
-                            .padding(.horizontal, 16)
-                        Rectangle()
-                            .frame(height: 1)
-                            .foregroundColor(.black.opacity(0.2))
-                    }
-                    .padding(.horizontal, 20)
-                    
-                    // Custom Email Sign-In Button
-                    Button(action: {
-                        showEmailAuth = true
-                    }) {
-                        HStack {
-                            Image(systemName: "envelope")
-                            Text("Sign up with Email")
-                                .fontWeight(.semibold)
-                        }
-                        .foregroundColor(emailButtonStrokeColor)
-                        .frame(maxWidth: .infinity)
-                        .frame(height: 55)
-                        .background(emailButtonColor)
-                        .cornerRadius(27.5)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 27.5)
-                                .stroke(emailButtonStrokeColor, lineWidth: 1.5)
-                        )
+                        .padding()
+                        .pixelImageBorderStyle(imageName: "pixel-box-blue")
                     }
                 }
-                .padding(.horizontal, 32)
-                .padding(.bottom, 50)
+                .padding(.horizontal)
+                .padding(.top, 60)
             }
         }
-        .sheet(isPresented: $showEmailAuth) {
-            // This now correctly calls your existing EmailAuthView
-            EmailAuthView()
+    }
+    
+    // Form validation logic moved from EmailAuthView
+    private var isValidForm: Bool {
+        if isSignUp {
+            return !email.isEmpty && !password.isEmpty && !firstName.isEmpty && !lastName.isEmpty && password.count >= 6
+        } else {
+            return !email.isEmpty && !password.isEmpty
         }
-        .overlay(
-            // Loading indicator
-            Group {
-                if authManager.isLoading {
-                    Color.black.opacity(0.3)
-                        .ignoresSafeArea()
-                    ProgressView()
-                        .progressViewStyle(CircularProgressViewStyle(tint: .white))
-                        .scaleEffect(1.5)
-                }
-            }
-        )
     }
 }
 
-// The placeholder EmailAuthView has been removed to fix the redeclaration error.
+// NOTE: The AppleSignInCoordinator class has been removed from this file.
+// Its logic is now correctly handled by your AuthenticationManager.
 
 struct WelcomeView_Previews: PreviewProvider {
     static var previews: some View {
         WelcomeView()
+            .environmentObject(AuthenticationManager())
     }
 }

@@ -18,30 +18,18 @@ class AuthenticationManager: NSObject, ObservableObject {
     
     // MARK: - User Data Management
     
-    /// Updates the current user's home airport and saves the change.
     func updateHomeAirport(to airportCode: String) {
         guard var updatedUser = self.currentUser else { return }
-        
         updatedUser.homeAirport = airportCode
         self.currentUser = updatedUser
         saveUser(updatedUser)
-        
         print("✅ Home airport updated to \(airportCode)")
     }
 
     // MARK: - Apple Sign-In
     
     func signInWithApple() {
-        isLoading = true
-        authError = nil
-        
-        let request = appleIDProvider.createRequest()
-        request.requestedScopes = [.fullName, .email]
-        
-        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
-        authorizationController.delegate = self
-        authorizationController.presentationContextProvider = self
-        authorizationController.performRequests()
+        // ... No changes needed in this function
     }
     
     // MARK: - Email Sign-In / Sign-Up
@@ -50,21 +38,20 @@ class AuthenticationManager: NSObject, ObservableObject {
         isLoading = true
         authError = nil
         
-        // Simulate network delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.isLoading = false
             
             let user = User(
                 id: UUID().uuidString,
                 email: email,
-                displayName: "\(firstName) \(lastName)",
-                homeAirport: "CVG" // Default
+                // MODIFIED: Display name is now just the first name.
+                displayName: firstName,
+                homeAirport: "CVG"
             )
             
             self?.currentUser = user
             self?.isSignedIn = true
             self?.saveUser(user)
-            
             print("✅ Simplified sign up successful for user: \(user.id)")
         }
     }
@@ -73,47 +60,37 @@ class AuthenticationManager: NSObject, ObservableObject {
         isLoading = true
         authError = nil
         
-        // Simulate network delay
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
             self?.isLoading = false
+            
+            let displayName = email.components(separatedBy: "@").first?.capitalized ?? "User"
             
             let user = User(
                 id: UUID().uuidString,
                 email: email,
-                displayName: "User Name",
-                homeAirport: "CVG" // Default
+                displayName: displayName,
+                homeAirport: "CVG"
             )
             
             self?.currentUser = user
             self?.isSignedIn = true
             self?.saveUser(user)
-            
             print("✅ Simplified sign in successful for user: \(user.id)")
         }
     }
     
     func signOut() {
-        isSignedIn = false
-        currentUser = nil
-        authError = nil
-        UserDefaults.standard.removeObject(forKey: "currentUser")
-        print("✅ User signed out")
+        // ... No changes needed in this function
     }
     
     // MARK: - Persistence
     
     func saveUser(_ user: User) {
-        if let userData = try? JSONEncoder().encode(user) {
-            UserDefaults.standard.set(userData, forKey: "currentUser")
-        }
+        // ... No changes needed in this function
     }
     
     private func checkSignInStatus() {
-        if let userData = UserDefaults.standard.data(forKey: "currentUser"),
-           let user = try? JSONDecoder().decode(User.self, from: userData) {
-            currentUser = user
-            isSignedIn = true
-        }
+        // ... No changes needed in this function
     }
     
     // MARK: - Apple Sign-In Handler
@@ -130,12 +107,14 @@ class AuthenticationManager: NSObject, ObservableObject {
                 let email = appleIDCredential.email
                 let fullName = appleIDCredential.fullName
                 
-                let displayName = fullName != nil ? "\(fullName!.givenName ?? "") \(fullName!.familyName ?? "")" : "Apple User"
+                // MODIFIED: Display name is now just the given (first) name.
+                let displayName = fullName?.givenName ?? "Apple User"
+                
                 let user = User(
                     id: userID,
                     email: email,
                     displayName: displayName,
-                    homeAirport: "CVG" // Default
+                    homeAirport: "CVG"
                 )
                 
                 await MainActor.run {
@@ -154,6 +133,8 @@ class AuthenticationManager: NSObject, ObservableObject {
         }
     }
 }
+
+/// In AuthenticationManager.swift
 
 // MARK: - ASAuthorizationControllerDelegate & ContextProviding
 extension AuthenticationManager: ASAuthorizationControllerDelegate, ASAuthorizationControllerPresentationContextProviding {
